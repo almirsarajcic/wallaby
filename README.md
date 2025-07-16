@@ -151,8 +151,8 @@ It's important that this is at the top of `endpoint.ex` before any other plugs.
 defmodule YourAppWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :your_app
 
-  if sandbox = Application.compile_env(:your_app, :sandbox, false) do
-    plug Phoenix.Ecto.SQL.Sandbox, sandbox: sandbox
+  if Application.compile_env(:your_app, :sandbox, false) do
+    plug Phoenix.Ecto.SQL.Sandbox
   end
 
   # ...
@@ -299,7 +299,7 @@ If you're testing an umbrella application containing a Phoenix application for t
 defmodule MyWebApp.Endpoint do
   use Phoenix.Endpoint, otp_app: :my_web_app
 
-  if Application.get_env(:my_persistence_app, :sql_sandbox) do
+  if Application.compile_env(:my_persistence_app, :sandbox, false) do
     plug Phoenix.Ecto.SQL.Sandbox
   end
 ```
@@ -598,6 +598,33 @@ Application.put_env(:wallaby, :js_logger, file)
 
 Logging can be disabled by setting `:js_logger` to `nil`.
 
+### Enabling WebAuthn Virtual Authenticator (Chrome only)
+
+When wanting to test Passkeys with Wallaby, you have to make sure WebAuthn Virtual Authenticator is enabled. You must execute this code to enable this feature in Chrome via the Chromedriver. This configuration will make Chrome automatically present a virtual Passkey whenever WebAuthn [create()](https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/create) or [get()](https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get) APIs are called in browser.
+
+```elixir
+{:ok, _result} =
+  Wallaby.HTTPClient.request(:post, "#{session.url}/chromium/send_command_and_get_result", %{
+    cmd: "WebAuthn.enable",
+    params: %{}
+  })
+
+{:ok, result} =
+  Wallaby.HTTPClient.request(:post, "#{session.url}/chromium/send_command_and_get_result", %{
+    cmd: "WebAuthn.addVirtualAuthenticator",
+    params: %{
+      options: %{
+        protocol: "ctap2",
+        transport: "internal",
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true
+      }
+    }
+  })
+```
+
 ## Configuration
 
 ### Adjusting timeouts
@@ -644,3 +671,7 @@ $ WALLABY_DRIVER=selenium mix test
 # All tests
 $ mix test.all
 ```
+
+### Helpful Links
+
+- [ChromeDriver Issue Tracker](https://issues.chromium.org/issues?q=status:open%20componentid:1608258&s=created_time:desc)
